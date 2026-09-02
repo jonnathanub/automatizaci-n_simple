@@ -1,58 +1,116 @@
-# Módulo para consultar precios de acciones en tiempo real usando yfinance
+```python
 import yfinance as yf
 from utils.sanitizar import sanitizar
 
-# Diccionario para mapear nombres comunes de empresas a sus Tickers de bolsa correspondientes
+
+# Diccionario de empresas y sus símbolos bursátiles
 COMPANY_TICKERS = {
     "microsoft": "MSFT",
+    "msft": "MSFT",
+
     "apple": "AAPL",
+    "aapl": "AAPL",
+
     "google": "GOOGL",
     "alphabet": "GOOGL",
+    "googl": "GOOGL",
+
     "amazon": "AMZN",
+    "amzn": "AMZN",
+
+    "tesla": "TSLA",
+    "tsla": "TSLA",
+
     "meta": "META",
     "facebook": "META",
-    "netflix": "NFLX",
-    "nvidia": "NVDA",
-    "apple inc": "AAPL",
-    "microsoft corp": "MSFT",
+    "meta platforms": "META",
 
+    "netflix": "NFLX",
+    "nflx": "NFLX",
+
+    "nvidia": "NVDA",
+    "nvda": "NVDA",
 }
+
 
 def obtener_precio_accion(driver, user_input):
     """
-    Busca y retorna el precio actual de una acción utilizando la librería yfinance.
-    
-    Argumentos:
-        driver: Instancia de Selenium WebDriver (opcional).
-        user_input: Input del usuario que contiene el nombre de la empresa.
-    
-    Retorna:
-        El precio formateado como cadena o un mensaje explicativo si no se encuentra.
+    Obtiene el precio actual de una acción utilizando Yahoo Finance.
+
+    El parámetro driver se mantiene porque forma parte de la interfaz
+    utilizada por el chatbot y permite utilizar Selenium posteriormente.
     """
-    # Sanitizar el input para extraer únicamente el nombre de la empresa o el ticker
-    company_name = sanitizar(user_input)
-    
-    # Buscar si el nombre está en nuestro mapeo interno de tickers
-    ticker = COMPANY_TICKERS.get(company_name)
-    
-    # Si no está en el mapa, asumimos que el usuario pudo haber ingresado el Ticker directamente
-    if not ticker:
-        ticker = company_name.upper()
+
+    texto = sanitizar(user_input)
+
+    # Buscar primero empresas conocidas dentro de la consulta
+    ticker = None
+    empresa_encontrada = None
+
+    # Ordenamos por longitud para detectar primero nombres compuestos
+    # como "meta platforms".
+    empresas = sorted(
+        COMPANY_TICKERS.keys(),
+        key=len,
+        reverse=True
+    )
+
+    for empresa in empresas:
+        if empresa in texto:
+            ticker = COMPANY_TICKERS[empresa]
+            empresa_encontrada = empresa
+            break
+
+    # Si no encontramos una empresa conocida, intentamos obtener
+    # un símbolo bursátil de la consulta.
+    if ticker is None:
+        palabras = texto.split()
+
+        for palabra in palabras:
+            palabra_limpia = palabra.strip(".,!?¿¡")
+
+            if palabra_limpia.upper() in COMPANY_TICKERS:
+                ticker = COMPANY_TICKERS[palabra_limpia.lower()]
+                empresa_encontrada = palabra_limpia
+                break
+
+    # Si no se encontró ninguna empresa
+    if ticker is None:
+        return (
+            "No reconocí la empresa. Puedes consultar, por ejemplo: "
+            "Microsoft, Apple, Google, Amazon, Tesla, Meta, Netflix o Nvidia."
+        )
 
     try:
-        # Inicializar el objeto Ticker de yfinance
-        stock = yf.Ticker(ticker)
-        
-        # Obtener el historial del último día para extraer el precio de cierre más reciente
-        data = stock.history(period="1d")
-        
-        if not data.empty:
-            # Extraer el valor de la columna 'Close' de la última fila disponible
-            price = data['Close'].iloc[-1]
-            return f"${price:.2f}"
-        else:
-            return "No se encontraron datos de cotización (puede que el símbolo sea incorrecto o esté deslistado)."
-            
+        # Obtener información de Yahoo Finance
+        accion = yf.Ticker(ticker)
+
+        datos = accion.history(period="1d")
+
+        if datos.empty:
+            return (
+                f"No se encontraron datos para {empresa_encontrada} "
+                f"({ticker})."
+            )
+
+        # Obtener el último precio disponible
+        precio = datos["Close"].iloc[-1]
+
+        if precio is None:
+            return "No se pudo obtener el precio de la acción."
+
+        # Mostrar el precio con dos decimales
+        precio_formateado = f"{float(precio):,.2f}"
+
+        nombre_mostrado = empresa_encontrada.capitalize()
+
+        return f"{nombre_mostrado} ({ticker}): ${precio_formateado}"
+
     except Exception as e:
-        # Capturar errores de la API o problemas de red
-        return f"Error al consultar el precio de la acción: {e}"
+        print(f"Error al consultar Yahoo Finance: {e}")
+
+        return (
+            f"No se pudo obtener el precio de {empresa_encontrada} "
+            f"en este momento."
+        )
+```
