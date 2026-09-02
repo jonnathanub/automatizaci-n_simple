@@ -7,6 +7,8 @@ from funciones_agente.obtener_clima import obtener_clima
 from utils.sanitizar import sanitizar
 
 def chatbot():
+    print("Hola, soy tu asistente virtual. ¿En que puedo ayudarte hoy?")
+    user_input _ input("---> ")
     """
     Función principal que inicia el chatbot interactivo por consola.
     Maneja el ciclo de vida del chat, recibe el input del usuario y 
